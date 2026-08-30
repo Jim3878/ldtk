@@ -46,7 +46,13 @@
 
 	"win": {
 		"target": "nsis",
-		"publish": ["github"]
+		"publish": [
+			{
+				"provider": "github",
+				"owner": "Jim3878",
+				"repo": "ldtk"
+			}
+		]
 	},
 
 	"mac": {}
