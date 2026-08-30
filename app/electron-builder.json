@@ -55,7 +55,7 @@
 			"provider": "github",
 			"owner": "Jim3878",
 			"repo": "ldtk",
-			"draft": false
+			"releaseType": "release"
 		}
 	]
 }
