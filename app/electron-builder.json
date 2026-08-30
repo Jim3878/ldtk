@@ -45,16 +45,17 @@
 	},
 
 	"win": {
-		"target": "nsis",
-		"publish": [
-			{
-				"provider": "github",
-				"owner": "Jim3878",
-				"repo": "ldtk",
-				"draft": false
-			}
-		]
+		"target": "nsis"
 	},
 
-	"mac": {}
+	"mac": {},
+
+	"publish": [
+		{
+			"provider": "github",
+			"owner": "Jim3878",
+			"repo": "ldtk",
+			"draft": false
+		}
+	]
 }
