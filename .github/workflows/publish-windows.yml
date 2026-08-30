@@ -1,0 +1,54 @@
+name: publish-windows
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        os: [windows-latest]
+        haxe: [4.3.3]
+      fail-fast: true
+    runs-on: windows-latest
+
+    steps:
+      # Checkout & install haxe
+      - uses: actions/checkout@v2
+      - uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: ${{ matrix.haxe }}
+      - run: haxe -version
+
+      # Install libs
+      - run: haxelib install uuid
+      - run: haxelib git castle https://github.com/ncannasse/castle
+      - run: haxelib git heaps https://github.com/deepnight/heaps.git
+      - run: haxelib git hxnodejs https://github.com/HaxeFoundation/hxnodejs.git
+      - run: haxelib git electron https://github.com/tong/hxelectron.git
+      - run: haxelib git heaps-aseprite https://github.com/AustinEast/heaps-aseprite.git
+      - run: haxelib git ldtk-haxe-api https://github.com/deepnight/ldtk-haxe-api.git --always
+      - run: haxelib git deepnightLibs https://github.com/deepnight/deepnightLibs.git --always
+      - run: haxelib list
+
+      # Node/NPM commands
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - run: cd app && npm install
+      - run: cd app && npm run compile
+
+      # Build installer and publish it as a GitHub Release
+      # (electron-updater on client machines reads this release's metadata)
+      - name: Build and publish release
+        working-directory: app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder build --win --x64 --ia32 --publish always
