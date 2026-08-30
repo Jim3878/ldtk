@@ -173,7 +173,7 @@ class CommandPalette {
 						cat: SE_Entity,
 						desc: ei.def.identifier,
 						ctxDesc: l.identifier,
-						keywords: [],
+						keywords: [ ei.iid ],
 						onPick: ()->{
 							editor.selectLevel(l, true);
 							var b = editor.levelRender.bleepEntity(ei);

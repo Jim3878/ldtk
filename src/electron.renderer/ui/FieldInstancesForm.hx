@@ -136,6 +136,8 @@ class FieldInstancesForm {
 
 	function createFieldInput(domId:String, fi:data.inst.FieldInstance, arrayIdx:Int, jTarget:js.jquery.JQuery) {
 		jTarget.addClass( fi.def.type.getName() );
+		if( fi.def.hasCompoundSubFields() )
+			jTarget.addClass("hasCompound");
 
 		// Prefix
 		// if( ( fi.def.type==F_Int || fi.def.type==F_Float ) && fi.def.editorTextPrefix!=null && !fi.isUsingDefault(arrayIdx) )
@@ -250,12 +252,112 @@ class FieldInstancesForm {
 				var def = fi.def.getStringDefault();
 				input.attr("id",domId);
 				input.attr("placeholder", def==null ? "(null)" : def=="" ? "(empty string)" : def);
-				if( !fi.isUsingDefault(arrayIdx) )
-					input.val( fi.getString(arrayIdx) );
-				input.change( function(ev) {
-					fi.parseValue( arrayIdx, input.val() );
+
+				var hasCompound = fi.def.hasCompoundSubFields();
+
+				inline function currentRaw() return fi.isUsingDefault(arrayIdx) ? "" : fi.getString(arrayIdx);
+				inline function currentParams() return CompoundStringTools.parseParams( CompoundStringTools.splitPrimary( currentRaw() ).query );
+				function applyRaw(raw:String) {
+					fi.parseValue( arrayIdx, raw );
 					onFieldChange(fi);
-				});
+				}
+
+				if( !fi.isUsingDefault(arrayIdx) )
+					input.val( hasCompound ? CompoundStringTools.splitPrimary( fi.getString(arrayIdx) ).primary : fi.getString(arrayIdx) );
+
+				if( !hasCompound ) {
+					input.change( function(ev) {
+						fi.parseValue( arrayIdx, input.val() );
+						onFieldChange(fi);
+					});
+				}
+				else {
+					input.change( function(ev) applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, currentParams()) ) );
+
+					var jToggle = new J('<button type="button" class="compoundToggle" title="Show/hide extra parameters"></button>');
+					jToggle.appendTo(jTarget);
+
+					var jSub = new J('<div class="compoundSubFields"/>');
+					jSub.appendTo(jTarget);
+
+					for( sf in fi.def.compoundSubFields ) {
+						var jRow = new J('<div class="row"/>');
+						jRow.appendTo(jSub);
+						new J('<label/>').text(sf.key).appendTo(jRow);
+
+						switch sf.kind {
+							case CF_Bool:
+								var jCheck = new J('<input type="checkbox"/>');
+								jCheck.appendTo(jRow);
+								new form.input.BoolInput(
+									jCheck,
+									()-> currentParams().get(sf.key)=="true",
+									(v)-> {
+										var params = currentParams();
+										if( v ) params.set(sf.key,"true"); else params.remove(sf.key);
+										applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+									}
+								);
+
+							case CF_Enum:
+								var jSelect = new J('<select/>');
+								jSelect.appendTo(jRow);
+								var jNone = new J('<option value=""/>');
+								jNone.text("-- none --");
+								jNone.appendTo(jSelect);
+								if( sf.enumDefUid!=null ) {
+									var ed = project.defs.getEnumDef(sf.enumDefUid);
+									for(v in ed.values) {
+										var jOpt = new J('<option/>');
+										jOpt.appendTo(jSelect);
+										jOpt.attr("value",v.id);
+										jOpt.text(v.id);
+									}
+								}
+								jSelect.val( currentParams().get(sf.key) );
+								jSelect.change( function(ev) {
+									var params = currentParams();
+									var v = jSelect.val();
+									if( v==null || v=="" ) params.remove(sf.key); else params.set(sf.key, v);
+									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+								});
+
+							case CF_String:
+								var jStr = new J('<input type="text"/>');
+								jStr.appendTo(jRow);
+								jStr.val( currentParams().get(sf.key) );
+								jStr.change( function(ev) {
+									var params = currentParams();
+									var v = jStr.val();
+									if( v==null || v.length==0 ) params.remove(sf.key); else params.set(sf.key, v);
+									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+								});
+
+							case CF_Float:
+								var jNum = new J('<input type="number" step="any"/>');
+								jNum.appendTo(jRow);
+								var def = sf.floatDefault==null ? 0. : sf.floatDefault;
+								var raw = currentParams().get(sf.key);
+								jNum.val( raw!=null ? raw : def );
+								jNum.change( function(ev) {
+									var params = currentParams();
+									var v = Std.parseFloat( jNum.val() );
+									if( !M.isValidNumber(v) || v==def ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
+									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+								});
+						}
+					}
+
+					var hasHiddenData = false;
+					for( k in currentParams().keys() ) {
+						hasHiddenData = true;
+						break;
+					}
+					jSub.toggleClass("collapsed", !hasHiddenData);
+					jToggle.toggleClass("hasData", hasHiddenData);
+					jToggle.click( (ev)-> jSub.toggleClass("collapsed") );
+				}
+
 				if( fi.def.type==F_Text )
 					input.keyup();
 				hideInputIfDefault(arrayIdx, input, fi);

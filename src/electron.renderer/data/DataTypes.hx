@@ -22,6 +22,23 @@ enum ValueWrapper {
 	V_String(v:String);
 }
 
+// Extra Bool/Enum "sub-fields" that can be attached to a F_String FieldDef.
+// They are only UI/editing sugar: the actual value stays a single V_String,
+// baked as "primary?key=value&key2=value2".
+enum CompoundSubFieldKind {
+	CF_Bool;
+	CF_Enum;
+	CF_String;
+	CF_Float;
+}
+
+typedef CompoundSubFieldDef = {
+	var key : String; // query string param name, eg. "bubble"
+	var kind : CompoundSubFieldKind;
+	var enumDefUid : Null<Int>; // only used when kind==CF_Enum
+	var floatDefault : Null<Float>; // only used when kind==CF_Float
+}
+
 typedef TilesetSelection = {
 	var ids : Array<Int>;
 	var mode : TileEditMode;

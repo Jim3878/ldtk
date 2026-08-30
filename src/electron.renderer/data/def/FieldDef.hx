@@ -28,6 +28,7 @@ class FieldDef {
 	public var editorTextSuffix : Null<String>;
 	public var editorCutLongValues : Bool;
 	public var isArray : Bool;
+	public var compoundSubFields : Array<data.DataTypes.CompoundSubFieldDef>;
 
 	@:allow(ui.modal.panel.EditEntityDefs, misc.FieldTypeConverter, ui.FieldDefsForm)
 	var defaultOverride : Null<data.DataTypes.ValueWrapper>;
@@ -59,6 +60,7 @@ class FieldDef {
 		doc = null;
 		type = t;
 		isArray = array;
+		compoundSubFields = [];
 		editorDisplayMode = Hidden;
 		editorDisplayPos = Above;
 		editorDisplayScale = 1;
@@ -173,12 +175,52 @@ class FieldDef {
 		o.useForSmartColor = JsonTools.readBool(json.useForSmartColor, getDefaultUseForSmartColor(o.type));
 		o.exportToToc = JsonTools.readBool(json.exportToToc, false);
 		o.searchable = JsonTools.readBool(json.searchable, false);
+		o.compoundSubFields = readCompoundSubFields( Reflect.field(json, "compoundSubFields") );
 
 		return o;
 	}
 
+	// "compoundSubFields" isn't part of the official ldtk-haxe-api FieldDefJson typedef
+	// (that lib is a pristine upstream checkout), so it's read/written dynamically via
+	// Reflect instead of a typed field, keeping this extension local to this repo.
+	static function readCompoundSubFields(raw:Dynamic) : Array<data.DataTypes.CompoundSubFieldDef> {
+		var out : Array<data.DataTypes.CompoundSubFieldDef> = [];
+		if( raw==null || !Std.isOfType(raw, Array) )
+			return out;
+
+		for( e in (raw:Array<Dynamic>) ) {
+			if( e==null || e.key==null )
+				continue;
+			var kind : data.DataTypes.CompoundSubFieldKind = switch (e.kind:String) {
+				case "CF_Enum": CF_Enum;
+				case "CF_String": CF_String;
+				case "CF_Float": CF_Float;
+				case _: CF_Bool;
+			}
+			out.push({
+				key: Std.string(e.key),
+				kind: kind,
+				enumDefUid: e.enumDefUid==null ? null : Std.int(e.enumDefUid),
+				floatDefault: e.floatDefault==null ? null : (e.floatDefault:Float),
+			});
+		}
+		return out;
+	}
+
+	static function writeCompoundSubFields(arr:Array<data.DataTypes.CompoundSubFieldDef>) : Dynamic {
+		if( arr==null || arr.length==0 )
+			return null;
+
+		return arr.map( sf -> {
+			key: sf.key,
+			kind: sf.kind.getName(),
+			enumDefUid: sf.enumDefUid,
+			floatDefault: sf.floatDefault,
+		});
+	}
+
 	public function toJson() : ldtk.Json.FieldDefJson {
-		return {
+		var j : ldtk.Json.FieldDefJson = {
 			identifier: identifier,
 			doc: JsonTools.escapeNullableString(doc),
 			__type: getJsonTypeString(),
@@ -215,6 +257,11 @@ class FieldDef {
 			allowedRefTags: allowedRefTags.toJson(),
 			tilesetUid: tilesetUid,
 		}
+
+		if( type==F_String )
+			Reflect.setField(j, "compoundSubFields", writeCompoundSubFields(compoundSubFields));
+
+		return j;
 	}
 
 
@@ -240,6 +287,10 @@ class FieldDef {
 			return C.intToHex( C.toWhite( C.hexToInt(c), M.fclamp( luminosity-1, 0, 1 ) ) );
 		else
 			return c;
+	}
+
+	public inline function hasCompoundSubFields() {
+		return type==F_String && compoundSubFields.length>0;
 	}
 
 	public function getShortDescription(includeArray=true) : String {

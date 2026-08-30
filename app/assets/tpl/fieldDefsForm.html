@@ -75,6 +75,16 @@
 
 
 
+	<dt class="F_String">
+		<label>Hidden sub-fields</label>
+		<info>Extra bool/enum parameters attached to this string. They're collapsed behind a toggle when editing a value, and baked back into the same string as "?key=value&amp;key2=value2" when saved (Unity/exporters keep reading a plain string).</info>
+	</dt>
+	<dd>
+		<ul class="compoundSubFieldsList"></ul>
+		<button type="button" class="addCompoundSubField">+ Add sub-field</button>
+	</dd>
+
+
 	<dt class="F_Enum">
 		<label for="enumDef">Default value</label>
 		<info>This is the default enum value for this field, unless modified manually.</info>

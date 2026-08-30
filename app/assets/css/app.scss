@@ -7268,6 +7268,93 @@ canvas#webgl {
 }
 
 
+// Compound String field: list of Bool/Enum sub-fields configured in FieldDefsForm
+ul.compoundSubFieldsList {
+	list-style: none;
+	margin: 0 0 4px 0;
+	padding: 0;
+
+	li {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		margin-bottom: 2px;
+
+		span.sortHandle {
+			cursor: move;
+			opacity: 0.4;
+			padding: 0 4px;
+			&:hover {
+				opacity: 0.8;
+			}
+		}
+		&.sortable-ghost {
+			opacity: 0.3;
+		}
+
+		input.key {
+			width: 90px;
+		}
+		input.floatDefault {
+			width: 70px;
+		}
+		button.remove {
+			opacity: 0.6;
+			&:hover {
+				opacity: 1;
+			}
+		}
+	}
+}
+
+
+dl.form.fieldInstanceEditor {
+	// Compound String field: collapsible Bool/Enum sub-fields, next to the primary text input
+	button.compoundToggle {
+		margin-left: 2px;
+		opacity: 0.6;
+		&::after {
+			content: "▾";
+		}
+		&:hover {
+			opacity: 1;
+		}
+		&.hasData {
+			opacity: 1;
+			&::after {
+				content: "▾ •";
+			}
+		}
+	}
+
+	div.compoundSubFields {
+		flex-basis: 100%;
+		margin-top: 4px;
+		padding: 4px 6px;
+		border-left: 2px solid $bgLighter;
+
+		&.collapsed {
+			display: none;
+		}
+
+		div.row {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 2px;
+
+			label {
+				opacity: 0.7;
+				min-width: 60px;
+			}
+			input[type=text], input[type=number] {
+				width: 120px;
+			}
+		}
+	}
+}
+
+
 
 dl.form.fieldInstanceEditor {
 	padding: 0;
@@ -7604,8 +7691,12 @@ dl.form.fieldInstanceEditor {
 				overflow: hidden;
 				height: 33px;
 
-				&.F_Point {
+				&.F_Point, &.hasCompound {
 					height: auto;
+				}
+				&.hasCompound {
+					overflow: visible;
+					flex-wrap: wrap;
 				}
 
 				span:not([class]) {

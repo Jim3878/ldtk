@@ -982,7 +982,159 @@ class FieldDefsForm {
 			onFieldChange();
 		});
 
+		// Compound sub-fields (hidden Bool/Enum params attached to a String value)
+		if( curField.type==F_String )
+			renderCompoundSubFields();
+
 		// Finalize
 		JsTools.parseComponents(jForm);
+	}
+
+
+	// Reusable enum-picker context menu (same flow as the F_Enum(null) field-type
+	// creation branch in onCreateField, minus the "close the type-picker dialog" part).
+	function pickEnumDef(anchor:js.jquery.JQuery, ev:js.jquery.Event, onPick:(enumDefUid:Int)->Void) {
+		if( project.defs.enums.length==0 && project.defs.externalEnums.length==0 ) {
+			new ui.modal.dialog.Choice(
+				L.t._("This project contains no Enum yet. You first need to create one from the Enum panel."),
+				[
+					{ label:L.t._("Open enum panel"), cb:()->new ui.modal.panel.EditEnumDefs() }
+				]
+			);
+			return;
+		}
+
+		var ctx = new ui.modal.ContextMenu(ev);
+		var tagGroups = project.defs.groupUsingTags(project.defs.enums, ed->ed.tags);
+		if( tagGroups.length<=1 )
+			ctx.addTitle(L.t._("Pick an existing enum"));
+		for(group in tagGroups) {
+			if( tagGroups.length>1 )
+				ctx.addTitle( group.tag==null ? L._Untagged() : L.untranslated(group.tag) );
+			for(ed in group.all) {
+				ctx.addAction({
+					label: L.untranslated(ed.identifier),
+					cb: ()->onPick(ed.uid),
+				});
+			}
+		}
+
+		for(ext in project.defs.getGroupedExternalEnums().keyValueIterator()) {
+			ctx.addTitle( L.untranslated( dn.FilePath.fromFile(ext.key).fileWithExt ) );
+			for(ed in ext.value)
+				ctx.addAction({
+					label: L.untranslated(ed.identifier),
+					cb: ()->onPick(ed.uid),
+				});
+		}
+	}
+
+
+	function renderCompoundSubFields() {
+		var jList = jForm.find("ul.compoundSubFieldsList");
+		jList.find("li").remove();
+
+		for( sf in curField.compoundSubFields ) {
+			var jLi = new J("<li/>");
+			jLi.appendTo(jList);
+
+			var jHandle = new J('<span class="sortHandle">≡</span>');
+			jHandle.appendTo(jLi);
+
+			var jKey = new J('<input type="text" class="key"/>');
+			jKey.appendTo(jLi);
+			jKey.val(sf.key);
+			jKey.change( (ev)->{
+				var v = ~/[^a-zA-Z0-9_]/g.replace( StringTools.trim(jKey.val()), "" );
+				if( v.length==0 )
+					v = sf.key; // reject empty key, keep previous value
+				var base = v;
+				var n = 1;
+				while( Lambda.exists( curField.compoundSubFields, other->other!=sf && other.key==v ) ) {
+					v = base+(n++);
+				}
+				sf.key = v;
+				onFieldChange();
+			});
+
+			var jKind = new J('<select class="kind">
+				<option value="CF_Bool">Checkbox (bool)</option>
+				<option value="CF_Enum">Dropdown (enum)</option>
+				<option value="CF_String">Text (string)</option>
+				<option value="CF_Float">Number (float)</option>
+			</select>');
+			jKind.appendTo(jLi);
+			jKind.val( sf.kind.getName() );
+			jKind.change( (ev)->{
+				sf.kind = switch jKind.val() {
+					case "CF_Enum": CF_Enum;
+					case "CF_String": CF_String;
+					case "CF_Float": CF_Float;
+					case _: CF_Bool;
+				}
+				if( sf.kind!=CF_Enum )
+					sf.enumDefUid = null;
+				if( sf.kind!=CF_Float )
+					sf.floatDefault = null;
+				onFieldChange();
+			});
+
+			if( sf.kind==CF_Enum ) {
+				var ed = sf.enumDefUid==null ? null : project.defs.getEnumDef(sf.enumDefUid);
+				var jPick = new J('<button type="button" class="pickEnum"/>');
+				jPick.text( ed==null ? "-- pick enum --" : ed.identifier );
+				jPick.appendTo(jLi);
+				jPick.click( (ev)->{
+					pickEnumDef( jPick, ev, (enumDefUid)->{
+						sf.enumDefUid = enumDefUid;
+						onFieldChange();
+					});
+				});
+			}
+
+			if( sf.kind==CF_Float ) {
+				var jDef = new J('<input type="number" step="any" class="floatDefault" title="Default value"/>');
+				jDef.appendTo(jLi);
+				jDef.val( sf.floatDefault==null ? 0 : sf.floatDefault );
+				jDef.change( (ev)->{
+					var v = Std.parseFloat( jDef.val() );
+					sf.floatDefault = M.isValidNumber(v) ? v : 0;
+					onFieldChange();
+				});
+			}
+
+			var jRemove = new J('<button type="button" class="remove">x</button>');
+			jRemove.appendTo(jLi);
+			jRemove.click( (ev)->{
+				curField.compoundSubFields.remove(sf);
+				onFieldChange();
+			});
+		}
+
+		var jAdd = jForm.find("button.addCompoundSubField");
+		jAdd.off().click( (ev)->{
+			var n = curField.compoundSubFields.length+1;
+			var key = "param"+n;
+			while( Lambda.exists( curField.compoundSubFields, sf->sf.key==key ) )
+				key = "param"+(n++);
+			curField.compoundSubFields.push({ key:key, kind:CF_Bool, enumDefUid:null, floatDefault:null });
+			onFieldChange();
+		});
+
+		// Drag to reorder sub-fields (order controls the "?key=val&key2=val2" order in the saved string)
+		if( curField.compoundSubFields.length>1 )
+			JsTools.makeSortable(jList, function(ev) {
+				var from = ev.oldIndex;
+				var to = ev.newIndex;
+
+				if( from<0 || from>=curField.compoundSubFields.length || from==to )
+					return;
+				if( to<0 || to>=curField.compoundSubFields.length )
+					return;
+
+				var moved = curField.compoundSubFields.splice(from,1)[0];
+				curField.compoundSubFields.insert(to, moved);
+				onFieldChange();
+			});
 	}
 }
