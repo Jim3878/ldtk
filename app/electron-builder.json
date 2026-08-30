@@ -50,7 +50,8 @@
 			{
 				"provider": "github",
 				"owner": "Jim3878",
-				"repo": "ldtk"
+				"repo": "ldtk",
+				"draft": false
 			}
 		]
 	},
