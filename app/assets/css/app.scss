@@ -7295,7 +7295,7 @@ ul.compoundSubFieldsList {
 		input.key {
 			width: 90px;
 		}
-		input.floatDefault {
+		input.floatDefault, input.intDefault {
 			width: 70px;
 		}
 		button.remove {
@@ -7309,6 +7309,16 @@ ul.compoundSubFieldsList {
 
 
 dl.form.fieldInstanceEditor {
+	button.compoundToggleAll {
+		flex: 1 0 100%;
+		margin-bottom: 4px;
+		font-size: 0.85em;
+		opacity: 0.6;
+		&:hover {
+			opacity: 1;
+		}
+	}
+
 	// Compound String field: collapsible Bool/Enum sub-fields, next to the primary text input
 	button.compoundToggle {
 		margin-left: 2px;
@@ -7349,6 +7359,44 @@ dl.form.fieldInstanceEditor {
 			}
 			input[type=text], input[type=number] {
 				width: 120px;
+			}
+
+			// Same "still at default value" stripes pattern used for regular fields elsewhere
+			// (see a.usingDefault / select.usingDefault above), applied directly to the input
+			// since these rows are too compact for the full click-to-reveal overlay.
+			input.usingDefault, select.usingDefault {
+				border: 1px dashed $bgLight;
+				background-color: $bgMed;
+				background-image: url("../img/stripes.png");
+				color: $bgLighter;
+			}
+
+			// Checkboxes are native widgets: background-image/border set directly on them are
+			// ignored by the browser. Put the same stripes on a wrapper box around it instead,
+			// same trick as a.usingDefault.checkbox elsewhere in this form -- sized like the
+			// other striped inputs (input[type=text/number] above) so it actually reads as a
+			// visible box, not just a sliver around the checkbox.
+			span.checkboxWrap {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				min-width: 40px;
+				height: 24px;
+				box-sizing: border-box;
+				&.usingDefault {
+					border: 1px dashed $bgLight;
+					background-color: $bgMed;
+					background-image: url("../img/stripes.png");
+					input[type=checkbox] {
+						opacity: 0.4;
+					}
+				}
+			}
+
+			// Dim the whole row's label too when still at default, on top of the input's own stripes
+			&.isDefault:not(:hover) label {
+				opacity: 0.5;
+				font-style: italic;
 			}
 		}
 	}

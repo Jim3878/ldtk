@@ -18,12 +18,8 @@ class Changelog extends ui.modal.Dialog {
 		var all = Const.getChangeLog();
 		var changeLog : dn.Changelog.ChangelogEntry = null;
 		if( version==null ) {
-			// Auto-select last major version
-			for(c in all.entries)
-				if( c.version.patch==0 ) {
-					changeLog = c;
-					break;
-				}
+			// Auto-select the most recent entry, whatever it is (major release or patch)
+			changeLog = all.entries[0];
 		}
 		else {
 			// Pick specific version

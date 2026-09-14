@@ -30,6 +30,7 @@ enum CompoundSubFieldKind {
 	CF_Enum;
 	CF_String;
 	CF_Float;
+	CF_Int;
 }
 
 typedef CompoundSubFieldDef = {
@@ -37,6 +38,7 @@ typedef CompoundSubFieldDef = {
 	var kind : CompoundSubFieldKind;
 	var enumDefUid : Null<Int>; // only used when kind==CF_Enum
 	var floatDefault : Null<Float>; // only used when kind==CF_Float
+	var intDefault : Null<Int>; // only used when kind==CF_Int
 }
 
 typedef TilesetSelection = {

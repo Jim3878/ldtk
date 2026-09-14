@@ -17,15 +17,38 @@ class FieldInstancesForm {
 	var fieldDefs : Array<data.def.FieldDef>;
 	var fieldInstGetter : (fd:FieldDef)->FieldInstance;
 
+	// Manually-opened "extra parameters" sections (compound string sub-fields), keyed by "<fieldDefUid>_<arrayIdx>".
+	// Everything defaults to collapsed; only keys explicitly set here stay open across a renderForm() triggered
+	// by editing some other field. Reset whenever use() is called for a genuinely different entity/level (see instanceKey()).
+	var compoundOpenStates : Map<String,Bool>;
+	var lastInstanceKey : String;
+
 
 	public function new() {
 		jWrapper = new J('<dl class="form fieldInstanceEditor"/>');
+		compoundOpenStates = new Map();
+	}
+
+	// Identifies *which* entity/level this form is currently bound to (by iid), so use() can tell a real
+	// selection change apart from an incidental re-bind to the same instance (eg. triggered by our own
+	// EntityFieldInstanceChanged/LevelFieldInstanceChanged event, which re-runs use() on every field edit).
+	static function instanceKey(ri:FormRelatedInstance) : String {
+		return switch ri {
+			case Entity(ei): "Entity_"+ei.iid;
+			case Level(l): "Level_"+l.iid;
+		}
 	}
 
 	public function use(elementInstance: FormRelatedInstance, fieldDefs: Array<FieldDef>, fieldInstGetter: (fd:FieldDef)->FieldInstance ) {
 		this.relatedInstance = elementInstance;
 		this.fieldInstGetter = fieldInstGetter;
 		this.fieldDefs = fieldDefs;
+
+		var key = instanceKey(elementInstance);
+		if( key!=lastInstanceKey )
+			compoundOpenStates = new Map();
+		lastInstanceKey = key;
+
 		renderForm();
 	}
 
@@ -283,12 +306,17 @@ class FieldInstancesForm {
 					for( sf in fi.def.compoundSubFields ) {
 						var jRow = new J('<div class="row"/>');
 						jRow.appendTo(jSub);
+						var isDefault = currentParams().get(sf.key)==null;
+						jRow.toggleClass("isDefault", isDefault);
 						new J('<label/>').text(sf.key).appendTo(jRow);
 
 						switch sf.kind {
 							case CF_Bool:
+								var jCheckWrap = new J('<span class="checkboxWrap"/>');
+								jCheckWrap.appendTo(jRow);
+								jCheckWrap.toggleClass("usingDefault", isDefault);
 								var jCheck = new J('<input type="checkbox"/>');
-								jCheck.appendTo(jRow);
+								jCheck.appendTo(jCheckWrap);
 								new form.input.BoolInput(
 									jCheck,
 									()-> currentParams().get(sf.key)=="true",
@@ -302,6 +330,7 @@ class FieldInstancesForm {
 							case CF_Enum:
 								var jSelect = new J('<select/>');
 								jSelect.appendTo(jRow);
+								jSelect.toggleClass("usingDefault", isDefault);
 								var jNone = new J('<option value=""/>');
 								jNone.text("-- none --");
 								jNone.appendTo(jSelect);
@@ -325,6 +354,7 @@ class FieldInstancesForm {
 							case CF_String:
 								var jStr = new J('<input type="text"/>');
 								jStr.appendTo(jRow);
+								jStr.toggleClass("usingDefault", isDefault);
 								jStr.val( currentParams().get(sf.key) );
 								jStr.change( function(ev) {
 									var params = currentParams();
@@ -336,6 +366,7 @@ class FieldInstancesForm {
 							case CF_Float:
 								var jNum = new J('<input type="number" step="any"/>');
 								jNum.appendTo(jRow);
+								jNum.toggleClass("usingDefault", isDefault);
 								var def = sf.floatDefault==null ? 0. : sf.floatDefault;
 								var raw = currentParams().get(sf.key);
 								jNum.val( raw!=null ? raw : def );
@@ -345,6 +376,31 @@ class FieldInstancesForm {
 									if( !M.isValidNumber(v) || v==def ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
 									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
 								});
+
+							case CF_Int:
+								var jNum = new J('<input type="number" step="1"/>');
+								jNum.appendTo(jRow);
+								jNum.toggleClass("usingDefault", isDefault);
+								var def = sf.intDefault==null ? 0 : sf.intDefault;
+								var raw = currentParams().get(sf.key);
+								jNum.val( raw!=null ? raw : Std.string(def) );
+								jNum.change( function(ev) {
+									var params = currentParams();
+									var v = Std.parseInt( jNum.val() );
+									if( v==null || v==def ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
+									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+								});
+						}
+
+						// Same "Reset to default" icon button used for regular fields
+						if( !isDefault ) {
+							var jSubReset = new J('<button class="transparent reset"> <span class="icon reset"></span> </button>');
+							jSubReset.appendTo(jRow);
+							jSubReset.click( (ev)-> {
+								var params = currentParams();
+								params.remove(sf.key);
+								applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
+							});
 						}
 					}
 
@@ -353,9 +409,16 @@ class FieldInstancesForm {
 						hasHiddenData = true;
 						break;
 					}
-					jSub.toggleClass("collapsed", !hasHiddenData);
 					jToggle.toggleClass("hasData", hasHiddenData);
-					jToggle.click( (ev)-> jSub.toggleClass("collapsed") );
+
+					// Collapsed by default; stays open across incidental re-renders only if the user opened it manually this session
+					var stateKey = fi.def.uid+"_"+arrayIdx;
+					jSub.attr("data-compoundKey", stateKey);
+					jSub.toggleClass("collapsed", compoundOpenStates.get(stateKey)!=true);
+					jToggle.click( (ev)-> {
+						jSub.toggleClass("collapsed");
+						compoundOpenStates.set(stateKey, !jSub.hasClass("collapsed"));
+					});
 				}
 
 				if( fi.def.type==F_Text )
@@ -907,6 +970,20 @@ class FieldInstancesForm {
 		if( fieldDefs.length==0 )
 			return;
 
+		// Expand/collapse every extra-parameters section within one field's own array (called from that field's own toggle-all button)
+		function toggleAllCompound(jFieldDd:js.jquery.JQuery) {
+			var jSubs = jFieldDd.find("div.compoundSubFields");
+			if( jSubs.length==0 )
+				return;
+			var allOpen = jSubs.filter(".collapsed").length==0;
+			jSubs.toggleClass("collapsed", allOpen);
+			jSubs.each( (idx,e)-> {
+				var key = new J(e).attr("data-compoundKey");
+				if( key!=null )
+					compoundOpenStates.set(key, !allOpen);
+			});
+		}
+
 		// Fields
 		for(fd in fieldDefs) {
 			var fi = fieldInstGetter(fd);
@@ -969,6 +1046,13 @@ class FieldInstancesForm {
 			}
 			else {
 				// Array
+				if( fd.hasCompoundSubFields() ) {
+					var jToggleAll = new J('<button type="button" class="compoundToggleAll"/>');
+					jToggleAll.text( L.t._("Toggle all extra parameters") );
+					jToggleAll.appendTo(jDd);
+					jToggleAll.click( (ev)-> toggleAllCompound(jDd) );
+				}
+
 				var jArray = new J('<div class="array"/>');
 				jArray.appendTo(jDd);
 				if( fi.getArrayLength()==0 )

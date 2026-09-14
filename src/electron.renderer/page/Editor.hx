@@ -2383,7 +2383,7 @@ class Editor extends Page {
 				l.invalidateCachedError();
 
 			case LayerInstancesRestoredFromHistory(_), LevelRestoredFromHistory(_):
-				selectionTool.clear();
+				selectionTool.clear(false); // Don't force-close the entity panel: it re-points itself to the fresh post-restore entity on its own
 				clearSpecialTool();
 				updateAppBg();
 				updateLayerList();

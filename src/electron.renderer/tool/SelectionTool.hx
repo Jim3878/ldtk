@@ -27,8 +27,8 @@ class SelectionTool extends Tool<Int> {
 		super.onGlobalEvent(ev);
 		switch ev {
 			case TilesetImageLoaded(_): clear();
-			case LevelRestoredFromHistory(_): clear();
-			case LayerInstancesRestoredFromHistory(_): clear();
+			case LevelRestoredFromHistory(_): clear(false);
+			case LayerInstancesRestoredFromHistory(_): clear(false);
 			case _:
 		}
 	}
@@ -256,10 +256,14 @@ class SelectionTool extends Tool<Int> {
 	}
 
 	public inline function get() return getSelectedValue();
-	public function clear() {
+	// `closeEntityPanel` is set to false after an undo/redo restore: the canvas selection group always needs
+	// clearing there (it may reference now-stale layer/entity objects), but EntityInstanceEditor already
+	// re-points itself to the fresh post-restore entity on its own, so it shouldn't be force-closed too.
+	public function clear(closeEntityPanel=true) {
 		if( !isEmpty() ) {
 			group.clear();
-			ui.EntityInstanceEditor.closeExisting();
+			if( closeEntityPanel )
+				ui.EntityInstanceEditor.closeExisting();
 			editor.clearResizeTool();
 		}
 	}

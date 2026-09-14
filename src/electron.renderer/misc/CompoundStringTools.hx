@@ -2,7 +2,7 @@ package misc;
 
 import data.DataTypes;
 
-// Pure string helpers for the "String + hidden Bool/Enum/String/Float sub-fields" compound
+// Pure string helpers for the "String + hidden Bool/Enum/String/Float/Int sub-fields" compound
 // encoding used by F_String fields that have FieldDef.compoundSubFields set.
 // Format: "primary?key=value&key2=value2" (first "?" splits primary from params).
 class CompoundStringTools {
@@ -50,7 +50,7 @@ class CompoundStringTools {
 					if( v!=null && v.length>0 )
 						parts.push( sf.key+"="+StringTools.urlEncode(v) );
 
-				case CF_Float:
+				case CF_Float, CF_Int:
 					if( v!=null && v.length>0 )
 						parts.push( sf.key+"="+v );
 			}

@@ -47,8 +47,10 @@ class EntityInstanceEditor extends dn.Process {
 			js.Browser.document.addEventListener("mouseup", resizeDrag);
 		});
 		minPanelWidth = Std.int( jWindow.innerWidth() );
-		if( PANEL_WIDTH<=0 )
-			PANEL_WIDTH = minPanelWidth;
+		if( PANEL_WIDTH<=0 ) {
+			var saved = App.ME.settings.getUiStateInt(EntityInstancePanelWidth, null, -1);
+			PANEL_WIDTH = saved>0 ? dn.M.fclamp(saved, minPanelWidth, 820) : minPanelWidth;
+		}
 		jWindow.css("width", Math.ceil(PANEL_WIDTH) + "px");
 
 		// Create custom fields form
@@ -110,8 +112,36 @@ class EntityInstanceEditor extends dn.Process {
 				if( ei==this.ei )
 					updateAllForms();
 
-			case LayerInstancesRestoredFromHistory(_), LevelRestoredFromHistory(_):
-				closeExisting(); // TODO do softer refresh
+			case LayerInstancesRestoredFromHistory(lis):
+				// Only this entity's own layer was actually replaced by the undo/redo -- if it's some
+				// other layer, `ei` is still perfectly valid and there's nothing to do.
+				var restoredOwnLayer = false;
+				for( li in lis )
+					if( li.def.uid==ei._li.def.uid )
+						restoredOwnLayer = true;
+				if( !restoredOwnLayer )
+					return;
+
+				var fresh = findEntityInLayers(lis, ei.iid);
+				if( fresh!=null ) {
+					ei = fresh;
+					updateAllForms();
+				}
+				else
+					closeExisting(); // This entity no longer exists after the undo/redo
+
+			case LevelRestoredFromHistory(l):
+				// The whole Level object gets replaced on a full-level restore: compare by iid, not by reference
+				if( l.iid!=ei._li.level.iid )
+					return;
+
+				var fresh = findEntityInLayers(l.layerInstances, ei.iid);
+				if( fresh!=null ) {
+					ei = fresh;
+					updateAllForms();
+				}
+				else
+					closeExisting(); // This entity no longer exists after the undo/redo
 
 			case LayerInstanceSelected(li):
 				closeExisting();
@@ -126,6 +156,17 @@ class EntityInstanceEditor extends dn.Process {
 		}
 	}
 
+	// Look up an entity instance by iid across a set of layer instances. Used after an undo/redo restore,
+	// where entities are freshly deserialized objects and can't be found by reference or via the (not
+	// updated on restore) project-wide iid cache.
+	static function findEntityInLayers(lis:Array<data.inst.LayerInstance>, iid:String) : Null<EntityInstance> {
+		for( li in lis )
+			for( e in li.entityInstances )
+				if( e.iid==iid )
+					return e;
+		return null;
+	}
+
 	function resizeDrag( ev : js.html.MouseEvent ) {
 		if ( ev.type == "mouseup" ) {
 			js.Browser.document.removeEventListener("mousemove", resizeDrag);
@@ -133,6 +174,8 @@ class EntityInstanceEditor extends dn.Process {
 		}
 		PANEL_WIDTH = dn.M.fclamp((js.Browser.window.innerWidth - ev.pageX), minPanelWidth, 820);
 		js.Browser.window.requestAnimationFrame(updateResize);
+		if ( ev.type == "mouseup" )
+			App.ME.settings.setUiStateInt(EntityInstancePanelWidth, Std.int(PANEL_WIDTH));
 	}
 
 	function updateResize( stamp : Float ) {

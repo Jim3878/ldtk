@@ -8,6 +8,7 @@ typedef SearchElement = {
 	var onPick: Void->Void;
 	var ?keywords: Array<String>;
 	var ?cachedKeywords : String;
+	var ?excludeDescFromKeywords: Bool;
 }
 
 enum ElementCategory {
@@ -21,7 +22,7 @@ class CommandPalette {
 	static var ME : Null<CommandPalette>;
 
 	static var MAX_RESULTS = 20;
-	static var MAX_DESC_LEN = 40;
+	static var MAX_DESC_LEN = 70;
 
 	public var editor(get,never) : Editor; inline function get_editor() return Editor.ME;
 	public var project(get,never) : data.Project; inline function get_project() return Editor.ME.project;
@@ -34,7 +35,7 @@ class CommandPalette {
 	var jElements(get,never) : js.jquery.JQuery; function get_jElements() return jResults.children(".element");
 	var jCurElement(get,never) : js.jquery.JQuery; function get_jCurElement() return jElements.filter('[uid=$curUid]');
 
-	var cleanReg = ~/[^a-z0-9 _]+/g;
+	var cleanReg = ~/[^a-z0-9 _-￿]+/g;
 	var spacesReg = ~/(  )+/g;
 	var allElements : Array<SearchElement> = [];
 	var curElements : Array<SearchElement> = [];
@@ -168,30 +169,40 @@ class CommandPalette {
 				// Entities
 				for(li in l.layerInstances)
 				for(ei in li.entityInstances) {
-					var searchElem : SearchElement = {
+					var doPick = ()->{
+						editor.selectLevel(l, true);
+						var b = editor.levelRender.bleepEntity(ei);
+						b.delayS = 0.2;
+						b.remainCount = 5;
+					}
+
+					// Base entity row: only searchable by type identifier / iid
+					allElements.push({
 						id: ei.iid,
 						cat: SE_Entity,
 						desc: ei.def.identifier,
 						ctxDesc: l.identifier,
 						keywords: [ ei.iid ],
-						onPick: ()->{
-							editor.selectLevel(l, true);
-							var b = editor.levelRender.bleepEntity(ei);
-							b.delayS = 0.2;
-							b.remainCount = 5;
-						}
-					}
-					allElements.push(searchElem);
+						onPick: doPick,
+					});
 
-					// Entity fields
+					// One extra row per searchable field value, so a match deep in
+					// an array field isn't hidden behind the array's first value
 					for(fi in ei.fieldInstances) {
 						if( !fi.def.searchable  )
 							continue;
 						for(i in 0...fi.getArrayLength()) {
 							if( fi.valueIsNull(i) )
 								continue;
-							searchElem.desc += "."+fi.getForDisplay(i);
-							searchElem.keywords.push( fi.getForDisplay(i) );
+							allElements.push({
+								id: ei.iid+"__"+fi.def.identifier+"__"+i,
+								cat: SE_Entity,
+								desc: ei.def.identifier+": "+fi.def.identifier+" = "+fi.getForDisplay(i),
+								ctxDesc: l.identifier,
+								keywords: [ fi.getForDisplay(i) ],
+								excludeDescFromKeywords: true,
+								onPick: doPick,
+							});
 						}
 					}
 
@@ -210,7 +221,8 @@ class CommandPalette {
 				case SE_Level: "level";
 				case SE_Entity: "entity";
 			});
-			e.keywords.push(e.desc.toLowerCase());
+			if( e.excludeDescFromKeywords!=true )
+				e.keywords.push(e.desc.toLowerCase());
 			e.cachedKeywords = cleanupKeywords( e.keywords.join(" ") );
 		}
 	}

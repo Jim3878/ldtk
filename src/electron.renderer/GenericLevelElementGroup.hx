@@ -598,7 +598,7 @@ class GenericLevelElementGroup {
 
 
 	function snapToGrid() {
-		return true;
+		return editor.isSnappingToGrid();
 	}
 
 

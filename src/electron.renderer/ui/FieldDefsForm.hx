@@ -1062,6 +1062,7 @@ class FieldDefsForm {
 				<option value="CF_Enum">Dropdown (enum)</option>
 				<option value="CF_String">Text (string)</option>
 				<option value="CF_Float">Number (float)</option>
+				<option value="CF_Int">Number (int)</option>
 			</select>');
 			jKind.appendTo(jLi);
 			jKind.val( sf.kind.getName() );
@@ -1070,12 +1071,15 @@ class FieldDefsForm {
 					case "CF_Enum": CF_Enum;
 					case "CF_String": CF_String;
 					case "CF_Float": CF_Float;
+					case "CF_Int": CF_Int;
 					case _: CF_Bool;
 				}
 				if( sf.kind!=CF_Enum )
 					sf.enumDefUid = null;
 				if( sf.kind!=CF_Float )
 					sf.floatDefault = null;
+				if( sf.kind!=CF_Int )
+					sf.intDefault = null;
 				onFieldChange();
 			});
 
@@ -1103,6 +1107,17 @@ class FieldDefsForm {
 				});
 			}
 
+			if( sf.kind==CF_Int ) {
+				var jDef = new J('<input type="number" step="1" class="intDefault" title="Default value"/>');
+				jDef.appendTo(jLi);
+				jDef.val( sf.intDefault==null ? 0 : sf.intDefault );
+				jDef.change( (ev)->{
+					var v = Std.parseInt( jDef.val() );
+					sf.intDefault = v==null ? 0 : v;
+					onFieldChange();
+				});
+			}
+
 			var jRemove = new J('<button type="button" class="remove">x</button>');
 			jRemove.appendTo(jLi);
 			jRemove.click( (ev)->{
@@ -1117,7 +1132,7 @@ class FieldDefsForm {
 			var key = "param"+n;
 			while( Lambda.exists( curField.compoundSubFields, sf->sf.key==key ) )
 				key = "param"+(n++);
-			curField.compoundSubFields.push({ key:key, kind:CF_Bool, enumDefUid:null, floatDefault:null });
+			curField.compoundSubFields.push({ key:key, kind:CF_Bool, enumDefUid:null, floatDefault:null, intDefault:null });
 			onFieldChange();
 		});
 

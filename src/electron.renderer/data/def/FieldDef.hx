@@ -195,6 +195,7 @@ class FieldDef {
 				case "CF_Enum": CF_Enum;
 				case "CF_String": CF_String;
 				case "CF_Float": CF_Float;
+				case "CF_Int": CF_Int;
 				case _: CF_Bool;
 			}
 			out.push({
@@ -202,6 +203,7 @@ class FieldDef {
 				kind: kind,
 				enumDefUid: e.enumDefUid==null ? null : Std.int(e.enumDefUid),
 				floatDefault: e.floatDefault==null ? null : (e.floatDefault:Float),
+				intDefault: e.intDefault==null ? null : Std.int(e.intDefault),
 			});
 		}
 		return out;
@@ -216,6 +218,7 @@ class FieldDef {
 			kind: sf.kind.getName(),
 			enumDefUid: sf.enumDefUid,
 			floatDefault: sf.floatDefault,
+			intDefault: sf.intDefault,
 		});
 	}
 

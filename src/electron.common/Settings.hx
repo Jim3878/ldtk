@@ -48,6 +48,7 @@ enum abstract UiState(String) {
 	var IntGridPaletteColumns;
 	var EntityPaletteColumns;
 	var LayerUIFilter;
+	var EntityInstancePanelWidth;
 }
 
 /* Notes: Settings related enums are stored in this file instead of EditorTypes to avoid Main compilation to reach unwanted classes, by importing EditorTypes. */
