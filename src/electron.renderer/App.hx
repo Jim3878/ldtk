@@ -86,6 +86,7 @@ class App extends dn.Process {
 		IpcRenderer.on("onWinClose", onWindowCloseButton);
 		IpcRenderer.on("onWinMove", onWindowMove);
 		IpcRenderer.on("settingsApplied", ()->updateBodyClasses());
+		IpcRenderer.on("externalGoto", (ev:Dynamic, projectPath:String, levelIid:String, entityIid:String) -> onExternalGoto(projectPath, levelIid, entityIid));
 
 		var win = js.Browser.window;
 		win.onblur = onWindowBlur;
@@ -160,12 +161,14 @@ class App extends dn.Process {
 				path.removeLastDirectory();
 				path.fileWithExt = dir+"."+Const.FILE_EXTENSION;
 			}
-			LOG.add("BOOT", 'Start args: path=$path levelIndex=$levelIndex');
+			var gotoLevelIid = args.getArgParam("--goto-level");
+			var gotoEntityIid = args.getArgParam("--goto-entity");
+			LOG.add("BOOT", 'Start args: path=$path levelIndex=$levelIndex gotoLevelIid=$gotoLevelIid gotoEntityIid=$gotoEntityIid');
 
 			// Load page
 			if( path!=null ) {
 				LOG.add("BOOT", 'Loading project from args (${path.full})...');
-				loadProject(path.full, levelIndex);
+				loadProject(path.full, levelIndex, null, gotoLevelIid, gotoEntityIid);
 			}
 			else if( settings.v.openLastProject && settings.v.lastProject!=null && NT.fileExists(settings.v.lastProject.filePath) ) {
 				var path = settings.v.lastProject.filePath;
@@ -440,10 +443,15 @@ class App extends dn.Process {
 	}
 
 	function getArgPath() : Null<dn.FilePath> {
-		if( args.getLastSoloValue()==null )
+		// Filter out a lone "." solo value: that's Electron's own app-directory argument when this app is
+		// launched unpackaged as "electron.exe . <realArgs>" (eg. from a dev-mode shortcut) — it isn't
+		// stripped upstream (ElectronTools.getArgs only drops the exe path itself), and a project path is
+		// never literally "." on its own, so it's always safe to drop here regardless of dev vs packaged.
+		var soloValues = args.getAllSoloValues().filter( v -> v!="." );
+		if( soloValues.length==0 )
 			return null;
 
-		var fp = dn.FilePath.fromFile( args.getAllSoloValues().join(" ") );
+		var fp = dn.FilePath.fromFile( soloValues.join(" ") );
 		if( fp.fileWithExt!=null )
 			return fp;
 
@@ -496,6 +504,18 @@ class App extends dn.Process {
 	}
 
 	function onWindowMove() {
+	}
+
+	/** Received when another LDtk instance was started with a project path + goto-level/goto-entity args (see ElectronMain "second-instance") **/
+	function onExternalGoto(projectPath:String, levelIid:String, entityIid:String) {
+		var samePath = Editor.exists()
+			&& dn.FilePath.fromFile(Editor.ME.project.filePath.full).full.toLowerCase()
+				== dn.FilePath.fromFile(projectPath).full.toLowerCase();
+
+		if( samePath )
+			Editor.ME.gotoLevelEntity(levelIid, entityIid);
+		else
+			loadProject(projectPath, null, null, levelIid, entityIid);
 	}
 
 	public function isLocked() {
@@ -966,13 +986,13 @@ class App extends dn.Process {
 		}
 	}
 
-	public function loadProject(filePath:String, ?levelIndex:Int, ?onComplete:(p:Null<data.Project>)->Void) : Void {
+	public function loadProject(filePath:String, ?levelIndex:Int, ?onComplete:(p:Null<data.Project>)->Void, ?gotoLevelIid:String, ?gotoEntityIid:String) : Void {
 		new ui.ProjectLoader(
 			filePath,
 			(p)->{
 				if( onComplete!=null )
 					onComplete(p);
-				loadPage( ()->new page.Editor(p, levelIndex), true );
+				loadPage( ()->new page.Editor(p, levelIndex, gotoLevelIid, gotoEntityIid), true );
 			},
 			(err)->{
 				// Failed

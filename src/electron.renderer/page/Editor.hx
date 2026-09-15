@@ -63,7 +63,7 @@ class Editor extends Page {
 		inline function get_curLevelTimeline() return levelTimelines.get(curLevelId);
 
 
-	public function new(p:data.Project, ?loadLevelIndex:Int) {
+	public function new(p:data.Project, ?loadLevelIndex:Int, ?gotoLevelIid:String, ?gotoEntityIid:String) {
 		super();
 
 		loadPageTemplate("editor");
@@ -135,7 +135,10 @@ class Editor extends Page {
 			);
 		}
 
-		if( loadLevelIndex!=null ) {
+		if( gotoLevelIid!=null || gotoEntityIid!=null ) {
+			gotoLevelEntity(gotoLevelIid, gotoEntityIid);
+		}
+		else if( loadLevelIndex!=null ) {
 			// TODO restore world and level on opening (this arg is only useful when starting LDtk from explorer)
 
 			// Auto-load provided level index
@@ -1457,6 +1460,30 @@ class Editor extends Page {
 		camera.scrollTo(tei.worldX, tei.worldY);
 		levelRender.bleepEntity(tei);
 		selectionTool.select([ Entity(curLayerInstance, tei) ]);
+	}
+
+
+	/** Jump to the given Level and/or Entity, identified by their `iid` (used by external CLI/IPC "goto" requests) **/
+	public function gotoLevelEntity(?levelIid:String, ?entityIid:String) {
+		if( entityIid!=null ) {
+			var ei = project.getEntityInstanceByIid(entityIid);
+			if( ei!=null )
+				followEntityRef(ei);
+			else {
+				N.error('Entity not found: $entityIid');
+				if( levelIid!=null )
+					gotoLevelEntity(levelIid);
+			}
+		}
+		else if( levelIid!=null ) {
+			var l = project.getLevelAnywhere(null, levelIid);
+			if( l!=null ) {
+				selectWorld(l._world);
+				selectLevel(l, true);
+			}
+			else
+				N.error('Level not found: $levelIid');
+		}
 	}
 
 	function updateWorldList() {

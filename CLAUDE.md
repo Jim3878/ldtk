@@ -49,6 +49,14 @@ haxe doc.hxml   # -> docs/JSON_DOC.md, docs/JSON_SCHEMA.json, docs/MINIMAL_JSON_
 
 There is no automated unit test suite. CI (`.github/workflows/test-windows.yml` and the `package-*.yml` workflows) only verifies that `main.hxml`/`renderer.hxml` compile and that packaging succeeds. `tests/` contains sample `.ldtk` project files and fixture assets used for manual testing, not a test runner. Verifying a change means compiling the relevant target(s) above and exercising the feature in the running app.
 
+## Changelog
+
+Whenever you make a user-facing change (new feature, behavior change, bug fix), add an entry to `docs/CHANGELOG.md` as part of that same change — under a new top section for the next version if one doesn't already exist for unreleased work, following the existing entries' language/style. Don't bump `app/package.json`'s version yourself unless asked; that's done separately when a release is actually cut.
+
+## Releasing
+
+Bumping `app/package.json`'s version and committing it is not itself a release — nothing is published until the commit (and, to trigger `publish-windows.yml`, a matching `vX.Y.Z` tag) is pushed to `origin`. Past sessions bumped the version and tagged several releases (1.5.4 through 1.5.8) entirely locally and never pushed them, so nothing was ever actually built or published for those versions even though it looked like a release had happened. Whenever a version bump is packaged/tagged as a release, push it (commits and tag) to `origin` in the same session — don't leave a cut release sitting local-only.
+
 ## Architecture
 
 ### Haxe compilation units (each `.hxml` is a separate compile with its own classpath)

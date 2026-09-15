@@ -8,7 +8,18 @@ class ElectronMain {
 
 	static var settings : Settings;
 
+	// External "goto level/entity" forwarding (see second-instance handling below)
+	static var rendererReady = false;
+	static var pendingExternalGoto : Null<ExternalGotoArgs> = null;
+
 	static function main() {
+		// Single instance lock: if another LDtk instance is already running, forward our
+		// args to it (via the 'second-instance' event below) and quit this one immediately.
+		if( !App.requestSingleInstanceLock() ) {
+			App.quit();
+			return;
+		}
+
 		settings = new Settings();
 
 		// Force best available GPU usage
@@ -16,6 +27,22 @@ class ElectronMain {
 			App.commandLine.appendSwitch("force_high_performance_gpu");
 
 		App.whenReady().then( (_)->showSplashWindow() );
+
+		// Another instance was started with args (eg. "LDtk.exe project.ldtk --goto-level=xxx --goto-entity=yyy"):
+		// forward those args to our own renderer, and bring our window to front.
+		App.on("second-instance", (event, argv:Array<String>, workingDirectory:String) -> {
+			var req = ExternalGotoArgs.fromRawArgv(argv);
+			if( mainWindow!=null ) {
+				if( mainWindow.isMinimized() )
+					mainWindow.restore();
+				mainWindow.show();
+				mainWindow.focus();
+			}
+			if( rendererReady )
+				sendExternalGoto(req);
+			else
+				pendingExternalGoto = req;
+		});
 
 		// Mac
 		App.on('window-all-closed', function() {
@@ -46,10 +73,22 @@ class ElectronMain {
 			mainWindow.on('move', function(ev) {
 				mainWindow.webContents.send("onWinMove");
 			});
+
+			// Renderer is now ready to receive IPC events: flush any pending external goto request
+			// that arrived (via 'second-instance') before this point.
+			rendererReady = true;
+			if( pendingExternalGoto!=null ) {
+				sendExternalGoto(pendingExternalGoto);
+				pendingExternalGoto = null;
+			}
 		});
 
 
 		// *** sendSync/on *****************************************************
+	}
+
+	static function sendExternalGoto(req:ExternalGotoArgs) {
+		mainWindow.webContents.send("externalGoto", req.projectPath, req.levelIid, req.entityIid);
 	}
 
 	static function fileNotFound(file:String) {

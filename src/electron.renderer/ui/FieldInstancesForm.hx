@@ -373,7 +373,7 @@ class FieldInstancesForm {
 								jNum.change( function(ev) {
 									var params = currentParams();
 									var v = Std.parseFloat( jNum.val() );
-									if( !M.isValidNumber(v) || v==def ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
+									if( !M.isValidNumber(v) ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
 									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
 								});
 
@@ -387,7 +387,7 @@ class FieldInstancesForm {
 								jNum.change( function(ev) {
 									var params = currentParams();
 									var v = Std.parseInt( jNum.val() );
-									if( v==null || v==def ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
+									if( v==null ) params.remove(sf.key); else params.set(sf.key, Std.string(v));
 									applyRaw( CompoundStringTools.buildRaw(input.val(), fi.def.compoundSubFields, params) );
 								});
 						}
